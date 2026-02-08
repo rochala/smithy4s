@@ -122,7 +122,7 @@ package object internals {
     object error extends TraitExtractor[ErrorTrait]
     object httpError extends TraitExtractor[HttpErrorTrait]
     object required extends TraitExtractor[RequiredTrait]
-    @annotation.nowarn("msg=class EnumTrait in package traits is deprecated")
+    @nowarn("msg=class EnumTrait in .* is deprecated")
     object enumeration extends TraitExtractor[EnumTrait]
     object timestampFormat extends TraitExtractor[TimestampFormatTrait]
     object uuidFormat extends TraitExtractor[UuidFormatTrait]

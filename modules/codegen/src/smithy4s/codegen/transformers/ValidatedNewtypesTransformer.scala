@@ -30,6 +30,7 @@ import software.amazon.smithy.model.traits.LengthTrait
 import software.amazon.smithy.model.traits.PatternTrait
 import software.amazon.smithy.model.traits.RangeTrait
 
+import scala.annotation.nowarn
 import scala.jdk.OptionConverters._
 
 class ValidatedNewtypesTransformer extends ProjectionTransformer {
@@ -66,17 +67,18 @@ class ValidatedNewtypesTransformer extends ProjectionTransformer {
     if (lookup(shape.getId().getNamespace()))
       shape match {
         case ValidatedNewtypesTransformer.SupportedShape(s) =>
-          addTrait(Shape.shapeToBuilder(s): AbstractShapeBuilder[_, _])
+          addValidateNewtypeTrait(s)
         case _ => shape
       }
     else
       shape
 
-  private def addTrait[S <: Shape, B <: AbstractShapeBuilder[B, S]](
-      builder: AbstractShapeBuilder[B, S]
-  ): S = {
+  @nowarn("msg=dead code")
+  private def addValidateNewtypeTrait(s: Shape): Shape = {
+    val builder =
+      Shape.shapeToBuilder(s).asInstanceOf[AbstractShapeBuilder[_, _]]
     builder.addTrait(new ValidateNewtypeTrait())
-    builder.build()
+    builder.build().asInstanceOf[Shape]
   }
 
 }

@@ -440,7 +440,7 @@ lazy val codegen = projectMatrix
   .in(file("modules/codegen"))
   .enablePlugins(BuildInfoPlugin)
   .dependsOn(protocol)
-  .jvmPlatform(buildtimejvmScala2Versions, jvmDimSettings)
+  .jvmPlatform(allJvmScalaVersions, jvmDimSettings)
   .settings(
     buildInfoKeys := Seq[BuildInfoKey](
       version,
@@ -465,8 +465,7 @@ lazy val codegen = projectMatrix
       Dependencies.Circe.parser.value,
       Dependencies.Circe.generic.value,
       Dependencies.collectionsCompat.value,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-      "io.get-coursier" %% "coursier" % "2.1.24",
+      "io.get-coursier" %% "coursier" % "2.1.24" cross CrossVersion.for3Use2_13,
       Dependencies.Mima.core % Test
     ),
     libraryDependencies ++= munitDeps.value,
@@ -553,6 +552,17 @@ lazy val millCodegenPlugin = projectMatrix
     name := "mill-codegen-plugin",
     simpleJVMLayout,
     libraryDependencySchemes += "com.lihaoyi" %% "geny" % VersionScheme.Always,
+    excludeDependencies ++= {
+      // Hack to make coursier work with Scala 3
+      // Ideal solution is migration to coursier-interfaces https://github.com/coursier/interface/issues/460
+      if (scalaVersion.value.startsWith("3."))
+        Seq(
+          ExclusionRule("org.scala-lang.modules", "scala-collection-compat_2.13"),
+          ExclusionRule("org.scala-lang.modules", "scala-xml_2.13")
+        )
+      else
+        Seq.empty
+    },
     publishLocal := {
       // make sure that core and codegen are published before the
       // plugin is published
@@ -564,6 +574,7 @@ lazy val millCodegenPlugin = projectMatrix
         (core.jvm(Scala3) / publishLocal).value,
         (dynamic.jvm(Scala213) / publishLocal).value,
         (codegen.jvm(Scala213) / publishLocal).value,
+        (codegen.jvm(Scala3) / publishLocal).value,
 
         // for mill
         (protocolJvm / publishLocal).value
@@ -573,8 +584,16 @@ lazy val millCodegenPlugin = projectMatrix
     Test / test := (Test / test).dependsOn(publishLocal).value,
     libraryDependencies ++= munitDeps.value
   )
-  .millPlatforms(Scala213, millVersions)
-  .dependsOn(codegen)
+  .millPlatformsWithScalaVersions(
+    Seq(
+      ("0.11.13", Scala213),
+      ("0.12.11", Scala213),
+      ("1.1.1", Scala3Next)
+    ),
+    scalaVer =>
+      if (scalaVer.startsWith("3.")) _.dependsOn(codegen.jvm(Scala3))
+      else _.dependsOn(codegen.jvm(Scala213))
+  )
 
 lazy val decline = (projectMatrix in file("modules/decline"))
   .settings(

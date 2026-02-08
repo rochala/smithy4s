@@ -88,15 +88,25 @@ object Dependencies {
   }
 
   object Mill {
-    def scalalib(v: String) = "com.lihaoyi" %% "mill-scalalib" % v % Provided
-    def main(v: String) = "com.lihaoyi" %% "mill-main" % v % Provided
-    def mainApi(v: String) = "com.lihaoyi" %% "mill-main-api" % v % Provided
-    def mainTestkit(v: String) =
-      if (v.startsWith("0.11")) {
-        "com.lihaoyi" %% "mill-main-testkit" % v % Test
+    def deps(v: String): Seq[ModuleID] = {
+      val testkit =
+        if (v.startsWith("0.11")) "com.lihaoyi" %% "mill-main-testkit" % v % Test
+        else "com.lihaoyi" %% "mill-testkit" % v % Test
+
+      if (v.startsWith("1.")) {
+        Seq(
+          "com.lihaoyi" %% "mill-libs" % v % Provided,
+          testkit
+        )
       } else {
-        "com.lihaoyi" %% "mill-testkit" % v % Test
+        Seq(
+          "com.lihaoyi" %% "mill-main" % v % Provided,
+          "com.lihaoyi" %% "mill-main-api" % v % Provided,
+          "com.lihaoyi" %% "mill-scalalib" % v % Provided,
+          testkit
+        )
       }
+    }
   }
 
   object Pprint {

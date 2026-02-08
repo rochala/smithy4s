@@ -25,7 +25,7 @@ import software.amazon.smithy.model.traits._
 
 import java.util.function.Function
 
-@annotation.nowarn("msg=class EnumTrait in package traits is deprecated")
+@annotation.nowarn("msg=class EnumTrait in .* is deprecated")
 private[codegen] final class OpenEnumTransformer extends ProjectionTransformer {
   override def getName: String = OpenEnumTransformer.name
 

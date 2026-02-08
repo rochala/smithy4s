@@ -132,7 +132,7 @@ private[codegen] class SmithyToIR(
       .toSet
       .flatMap((n: Node) => n.asArrayNode().asScala)
       .flatMap(_.getElements().asScala)
-      .flatMap(_.asStringNode().asScala.map(n => NamespacePattern(n.getValue)))
+      .flatMap(_.asStringNode().asScala.map(n => NamespacePattern.fromString(n.getValue)))
 
   private def fieldModifier(member: MemberShape): Field.Modifier = {
     val hasRequired = member.hasTrait(classOf[RequiredTrait])
@@ -340,6 +340,7 @@ private[codegen] class SmithyToIR(
         }
       }
 
+      @nowarn("msg=class EnumTrait in .* is deprecated")
       override def stringShape(shape: StringShape): Option[Decl] =
         (shape match {
           case T.enumeration(e) => {
@@ -735,7 +736,7 @@ private[codegen] class SmithyToIR(
           }
       }
 
-      @nowarn("msg=class SetShape in package shapes is deprecated")
+      @nowarn("msg=class SetShape in .* is deprecated")
       override def setShape(x: SetShape): Option[Type] = {
         x.getMember()
           .accept(this)
@@ -813,6 +814,7 @@ private[codegen] class SmithyToIR(
       override def intEnumShape(x: IntEnumShape): Option[Type] =
         Type.Ref(x.namespace, x.name).some
 
+      @nowarn("msg=class EnumTrait in .* is deprecated")
       def stringShape(x: StringShape): Option[Type] = x match {
         case T.enumeration(_) => Type.Ref(x.namespace, x.name).some
         case shape if shape.getId() == uuidShapeId =>
@@ -848,6 +850,7 @@ private[codegen] class SmithyToIR(
 
           builder
             .build()
+            .asInstanceOf[Shape]
             .accept(this)
         }
 
@@ -1314,6 +1317,7 @@ private[codegen] class SmithyToIR(
       )
   }
 
+  @nowarn("msg=class EnumTrait in .* is deprecated")
   private def unfoldNodeAndType(layer: NodeAndType): TypedNode[NodeAndType] =
     (layer.node, layer.tpe) match {
       // Struct
@@ -1429,7 +1433,7 @@ private[codegen] class SmithyToIR(
       case (node, IdRefCase()) =>
         val ref = Type.Ref("smithy4s", "ShapeId")
         val namespace :: name :: _ =
-          node.asStringNode.get.getValue.split("#").toList
+          (node.asStringNode.get.getValue.split("#").toList: @unchecked)
         def toField(value: String) = TypedNode.FieldTN.RequiredTN(
           NodeAndType(
             Node.from(value),

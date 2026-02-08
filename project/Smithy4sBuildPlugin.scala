@@ -44,25 +44,22 @@ case class MillCustomRow(mv: String) extends CustomRow {
     val millVersion = Smithy4sBuildPlugin.millPlatform(mv)
     val suffix = millVersion.replace('.', '_')
 
+    val includeShared = !mv.startsWith("1.")
+
     p.settings(
       crossVersion := CrossVersion
         .binaryWith(s"mill${Smithy4sBuildPlugin.millPlatform(mv)}_", ""),
-      libraryDependencies ++= Seq(
-        Dependencies.Mill.main(mv),
-        Dependencies.Mill.mainApi(mv),
-        Dependencies.Mill.scalalib(mv),
-        Dependencies.Mill.mainTestkit(mv)
-      ),
-      Compile / unmanagedSourceDirectories ++=
-        Seq(
-          (Compile / sourceDirectory).value.getParentFile.getParentFile / s"src-mill-shared",
-          (Compile / sourceDirectory).value.getParentFile.getParentFile / s"src-mill-${suffix}"
-        ),
-      Test / unmanagedSourceDirectories ++=
-        Seq(
-          (Test / sourceDirectory).value.getParentFile.getParentFile / "test" / s"src-mill-shared",
-          (Test / sourceDirectory).value.getParentFile.getParentFile / "test" / s"src-mill-${suffix}"
-        )
+      libraryDependencies ++= Dependencies.Mill.deps(mv),
+      Compile / unmanagedSourceDirectories ++= {
+        val base = (Compile / sourceDirectory).value.getParentFile.getParentFile
+        val shared = if (includeShared) Seq(base / "src-mill-shared") else Seq.empty
+        shared :+ (base / s"src-mill-${suffix}")
+      },
+      Test / unmanagedSourceDirectories ++= {
+        val base = (Test / sourceDirectory).value.getParentFile.getParentFile / "test"
+        val shared = if (includeShared) Seq(base / "src-mill-shared") else Seq.empty
+        shared :+ (base / s"src-mill-${suffix}")
+      }
     )
   }
 
@@ -73,6 +70,7 @@ object Smithy4sBuildPlugin extends AutoPlugin {
   val Scala212 = "2.12.20"
   val Scala213 = "2.13.18"
   val Scala3 = "3.3.6"
+  val Scala3Next = "3.8.1"
 
   object autoImport {
     // format: off
@@ -141,6 +139,24 @@ object Smithy4sBuildPlugin extends AutoPlugin {
           VirtualAxis.jvm,
           VirtualAxis.scalaPartialVersion(scalaVersion)
         )
+    }
+
+    def millPlatformsWithScalaVersions(
+        millVersionsWithScala: Seq[(String, String)],
+        extraConfigure: String => Project => Project = _ => identity
+    ): ProjectMatrix = {
+      millVersionsWithScala
+        .map { case (mv, scalaVer) =>
+          (MillCustomRow(mv), scalaVer)
+        }
+        .foldLeft(pm) { case (m, (row, scalaVer)) =>
+          m
+            .jvmPlatform(
+              scalaVersions = List(scalaVer),
+              axisValues = row.axisValues,
+              configure = p => extraConfigure(scalaVer)(row.process(p))
+            )
+        }
     }
   }
 
@@ -290,7 +306,7 @@ object Smithy4sBuildPlugin extends AutoPlugin {
   def compilerOptions(scalaVersion: String) = {
     val base =
       if (scalaVersion.startsWith("3."))
-        filterScala3Options(commonCompilerOptions)
+        filterScala3Options(scalaVersion, commonCompilerOptions)
       else if (priorTo2_13(scalaVersion))
         filterScala2_12Options(commonCompilerOptions)
       else
@@ -309,15 +325,25 @@ object Smithy4sBuildPlugin extends AutoPlugin {
   def targetScalacOptions(scalaVersion: String) =
     if (scalaVersion.startsWith("2.12")) Seq("-target:jvm-1.8", "-release", "8")
     else if (scalaVersion.startsWith("2.13")) Seq("-release", "8")
-    else if (scalaVersion.startsWith("3.")) Seq("-release", "8")
+    else if (scalaVersion.startsWith("3.")) Seq("-release", "17")
     else Seq.empty // when we get Scala 4...
 
-  def filterScala3Options(opts: Seq[String]) =
-    ("-Ykind-projector" +: opts)
+  def filterScala3Options(scalaVersion: String, opts: Seq[String]) = {
+    val minorVersion =
+      scalaVersion.stripPrefix("3.").takeWhile(_ != '.').toInt
+    val useNewFlags = minorVersion >= 5
+    val kindProjectorFlag =
+      if (useNewFlags) "-Xkind-projector" else "-Ykind-projector"
+    (kindProjectorFlag +: opts)
       .filterNot(_.startsWith("-Xlint"))
       .filterNot(_.startsWith("-Ywarn-"))
       .filterNot(_ == "-explaintypes")
       .filterNot(_ == "-Xcheckinit")
+      .map {
+        case "-Xfatal-warnings" if useNewFlags => "-Werror"
+        case other                             => other
+      }
+  }
 
   def filterScala2_12Options(opts: Seq[String]) =
     opts.filterNot(_ == "-Xlint:missing-interpolator")
@@ -630,6 +656,7 @@ object Smithy4sBuildPlugin extends AutoPlugin {
   val millVersions = List("0.11.13", "0.12.11")
 
   def millPlatform(millVersion: String): String = millVersion match {
+    case mv if mv.startsWith("1.")   => "1"
     case mv if mv.startsWith("0.12") => "0.12"
     case mv if mv.startsWith("0.11") => "0.11"
     case _                           => sys.error("Unsupported mill platform.")
