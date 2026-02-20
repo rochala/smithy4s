@@ -650,7 +650,7 @@ private[codegen] class SmithyToIR(
       def primitive(
           shape: Shape,
           primitiveId: String,
-          primitive: Primitive
+          primitive: Primitive[_]
       ): Option[Type] = {
         val externalOrBase =
           getExternalOrBase(shape, Type.PrimitiveType(primitive))
@@ -1464,9 +1464,9 @@ private[codegen] class SmithyToIR(
 
   private def unfoldNodeAndTypeP(
       node: Node,
-      p: Primitive
+      p: Primitive[_]
   ): TypedNode[NodeAndType] = {
-    def notSupported(nodeAndPrimitive: (Node, Primitive)) =
+    def notSupported(nodeAndPrimitive: (Node, Primitive[_])) =
       throw new NotImplementedError(
         s"Unsupported case: $nodeAndPrimitive"
       )

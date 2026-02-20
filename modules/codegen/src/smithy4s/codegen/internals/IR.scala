@@ -263,28 +263,24 @@ private[internals] sealed trait Type {
   }
 }
 
-private[internals] sealed trait Primitive {
-  type T
-}
+private[internals] sealed trait Primitive[T]
 private[internals] object Primitive {
-  type Aux[TT] = Primitive { type T = TT }
-
-  case object Unit extends Primitive { type T = Unit }
-  case object Blob extends Primitive { type T = Array[Byte] }
-  case object Bool extends Primitive { type T = Boolean }
-  case object String extends Primitive { type T = String }
-  case object Timestamp extends Primitive { type T = java.time.Instant }
-  case object Uuid extends Primitive { type T = java.util.UUID }
-  case object Byte extends Primitive { type T = Byte }
-  case object Int extends Primitive { type T = Int }
-  case object Short extends Primitive { type T = Short }
-  case object Long extends Primitive { type T = Long }
-  case object Float extends Primitive { type T = Float }
-  case object Double extends Primitive { type T = Double }
-  case object BigDecimal extends Primitive { type T = scala.math.BigDecimal }
-  case object BigInteger extends Primitive { type T = scala.math.BigInt }
-  case object Document extends Primitive { type T = Node }
-  case object Nothing extends Primitive { type T = Nothing }
+  case object Unit extends Primitive[Unit]
+  case object Blob extends Primitive[Array[Byte]]
+  case object Bool extends Primitive[Boolean]
+  case object String extends Primitive[String]
+  case object Timestamp extends Primitive[java.time.Instant]
+  case object Uuid extends Primitive[java.util.UUID]
+  case object Byte extends Primitive[Byte]
+  case object Int extends Primitive[Int]
+  case object Short extends Primitive[Short]
+  case object Long extends Primitive[Long]
+  case object Float extends Primitive[Float]
+  case object Double extends Primitive[Double]
+  case object BigDecimal extends Primitive[scala.math.BigDecimal]
+  case object BigInteger extends Primitive[scala.math.BigInt]
+  case object Document extends Primitive[Node]
+  case object Nothing extends Primitive[Nothing]
 }
 
 private[internals] object Type {
@@ -320,7 +316,7 @@ private[internals] object Type {
   ) extends Type
   case class ValidatedAlias(namespace: String, name: String, tpe: Type)
       extends Type
-  case class PrimitiveType(prim: Primitive) extends Type
+  case class PrimitiveType(prim: Primitive[_]) extends Type
   case class ExternalType(
       name: String,
       fullyQualifiedName: String,
@@ -553,7 +549,7 @@ private[internals] object TypedNode {
   case class MapTN[A](values: List[(A, A)]) extends TypedNode[A]
   case class CollectionTN[A](collectionType: CollectionType, values: List[A])
       extends TypedNode[A]
-  case class PrimitiveTN[T](prim: Primitive.Aux[T], value: T)
+  case class PrimitiveTN[T](prim: Primitive[T], value: T)
       extends TypedNode[Nothing]
 
 }

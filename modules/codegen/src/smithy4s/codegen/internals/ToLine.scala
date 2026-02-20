@@ -80,7 +80,7 @@ private[internals] object ToLine {
     }
   }
 
-  private def primitiveLine(p: Primitive): NameRef = {
+  private def primitiveLine(p: Primitive[_]): NameRef = {
     def scalaP(name: String) = NameRef("scala", name)
     def javaP(name: String) = NameRef("java.lang", name)
     p match {

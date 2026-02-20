@@ -465,7 +465,8 @@ lazy val codegen = projectMatrix
       Dependencies.Circe.parser.value,
       Dependencies.Circe.generic.value,
       Dependencies.collectionsCompat.value,
-      "io.get-coursier" %% "coursier" % "2.1.24" cross CrossVersion.for3Use2_13,
+      ("io.get-coursier" %% "coursier" % "2.1.24" cross CrossVersion.for3Use2_13)
+        .exclude("org.scala-lang.modules", "scala-collection-compat_2.13"),
       Dependencies.Mima.core % Test
     ),
     libraryDependencies ++= munitDeps.value,

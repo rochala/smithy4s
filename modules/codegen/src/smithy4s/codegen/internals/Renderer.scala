@@ -1660,7 +1660,7 @@ private[internals] class Renderer(compilationUnit: CompilationUnit) { self =>
       case Nullable(underlying) => line"${underlying.schemaRef}.option"
     }
 
-    private def schemaRefP(primitive: Primitive): String = primitive match {
+    private def schemaRefP(primitive: Primitive[_]): String = primitive match {
       case Primitive.Unit       => s"${schemaPkg_}.unit"
       case Primitive.Blob       => s"${schemaPkg_}.bytes"
       case Primitive.Bool       => s"${schemaPkg_}.boolean"
@@ -1848,36 +1848,35 @@ private[internals] class Renderer(compilationUnit: CompilationUnit) { self =>
         .map { case (k, v) => k.runDefault + line" -> " + v.runDefault }
         .intercalate(Line.comma)})".writeCollection
     case PrimitiveTN(prim, value) =>
-      renderPrimitive[prim.T](prim)(value).write
+      renderPrimitive(prim)(value).write
   }
 
-  private def renderPrimitive[T](prim: Primitive.Aux[T]): T => Line =
-    // NOTE: this match doesn't have exhaustivity checking on Scala 2! (due to the Aux pattern's weird interaction with gADTs)
-    (prim match {
+  private def renderPrimitive[T](prim: Primitive[T]): T => Line =
+    prim match {
       case Primitive.BigDecimal =>
-        (bd: BigDecimal) => line"scala.math.BigDecimal($bd)"
-      case Primitive.BigInteger => (bi: BigInt) => line"scala.math.BigInt($bi)"
-      case Primitive.Unit       => (_: Unit) => line"()"
-      case Primitive.Double     => (t: Double) => line"${t.toString}d"
-      case Primitive.Float      => (t: Float) => line"${t.toString}f"
-      case Primitive.Long       => (t: Long) => line"${t.toString}L"
-      case Primitive.Int        => (t: Int) => line"${t.toString}"
-      case Primitive.Short      => (t: Short) => line"${t.toString}"
-      case Primitive.Bool       => (t: Boolean) => line"${t.toString}"
-      case Primitive.Uuid       => (uuid: java.util.UUID) => line"java.util.UUID.fromString(${renderStringLiteral(uuid.toString)})"
-      case Primitive.String     => (s: String) => renderStringLiteral(s)
-      case Primitive.Byte       => (b: Byte) => line"${b.toString}"
+        bd => line"scala.math.BigDecimal(${bd.toString})"
+      case Primitive.BigInteger => bi => line"scala.math.BigInt(${bi.toString})"
+      case Primitive.Unit       => _ => line"()"
+      case Primitive.Double     => t => line"${t.toString}d"
+      case Primitive.Float      => t => line"${t.toString}f"
+      case Primitive.Long       => t => line"${t.toString}L"
+      case Primitive.Int        => t => line"${t.toString}"
+      case Primitive.Short      => t => line"${t.toString}"
+      case Primitive.Bool       => t => line"${t.toString}"
+      case Primitive.Uuid       => uuid => line"java.util.UUID.fromString(${renderStringLiteral(uuid.toString)})"
+      case Primitive.String     => s => renderStringLiteral(s)
+      case Primitive.Byte       => b => line"${b.toString}"
       case Primitive.Blob =>
-        (ba: Array[Byte]) =>
+        ba =>
           val blob = NameRef("smithy4s", "Blob")
           if (ba.isEmpty) line"$blob.empty"
           else
             line"$blob(Array[Byte](${ba.mkString(", ")}))"
       case Primitive.Timestamp =>
-        (ts: java.time.Instant) => line"${NameRef("smithy4s", "Timestamp")}(${ts.getEpochSecond()}L, ${ts.getNano()})"
-      case Primitive.Document => (n: Node) => renderNodeToLine(n)
-      case Primitive.Nothing  => (v: Any) => sys.error("unreachable: Nothing")
-    }).asInstanceOf[T => Line]
+        ts => line"${NameRef("smithy4s", "Timestamp")}(${ts.getEpochSecond()}L, ${ts.getNano()})"
+      case Primitive.Document => renderNodeToLine(_)
+      case Primitive.Nothing  => v => (v: Nothing)
+    }
 
   private def renderNodeToLine(node: Node): Line = {
     node.accept(new NodeVisitor[Line] {

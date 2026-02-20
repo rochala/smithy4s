@@ -183,7 +183,7 @@ object Smithy4sBuildPlugin extends AutoPlugin {
     moduleName := s"smithy4s-${name.value}",
     scalacOptions ++= compilerOptions(scalaVersion.value),
     // Turning off fatal warnings for ScalaDoc, otherwise we can't release.
-    Compile / doc / scalacOptions ~= (_ filterNot (_ == "-Xfatal-warnings")),
+    Compile / doc / scalacOptions ~= (_ filterNot (o => o == "-Xfatal-warnings" || o == "-Werror")),
     // ScalaDoc settings
     autoAPIMappings := true,
     // ThisBuild / scalacOptions ++= Seq(
@@ -322,18 +322,20 @@ object Smithy4sBuildPlugin extends AutoPlugin {
     }
   }
 
+  private def isScala3Next(scalaVersion: String): Boolean =
+    scalaVersion.startsWith("3.") &&
+      scalaVersion.stripPrefix("3.").takeWhile(_ != '.').toInt >= 5
+
   def targetScalacOptions(scalaVersion: String) =
     if (scalaVersion.startsWith("2.12")) Seq("-target:jvm-1.8", "-release", "8")
     else if (scalaVersion.startsWith("2.13")) Seq("-release", "8")
-    else if (scalaVersion.startsWith("3.")) Seq("-release", "17")
-    else Seq.empty // when we get Scala 4...
+    else if (isScala3Next(scalaVersion)) Seq("-release", "17")
+    else if (scalaVersion.startsWith("3.")) Seq("-release", "8")
+    else Seq.empty
 
   def filterScala3Options(scalaVersion: String, opts: Seq[String]) = {
-    val minorVersion =
-      scalaVersion.stripPrefix("3.").takeWhile(_ != '.').toInt
-    val useNewFlags = minorVersion >= 5
-    val kindProjectorFlag =
-      if (useNewFlags) "-Xkind-projector" else "-Ykind-projector"
+    val useNewFlags = isScala3Next(scalaVersion)
+    val kindProjectorFlag = if (useNewFlags) "-Xkind-projector" else "-Ykind-projector"
     (kindProjectorFlag +: opts)
       .filterNot(_.startsWith("-Xlint"))
       .filterNot(_.startsWith("-Ywarn-"))
